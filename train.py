@@ -13,46 +13,101 @@ import keras.callbacks
 import random
 import time
 
+
+# each board is a (3,3,3) matrix, where the last dimension is
+# [0] == 1 for empty space
+# [1] == 1 for my space
+# [2] == 1 for enemy space
+
 BOARD_SIZE = 3
 MODEL_H5_NAME = "ttt.h5"
 MODEL_COREML_NAME = "ttt.mlmodel"
 
+COMPUTER_PLAYER = 0
+OTHER_PLAYER = 1
+
+def PrintTrainingBoard(board, output):
+	
+	board_as_char = [[" "," "," "],[" "," "," "],[" "," "," "]]
+	
+	for x in range(0,BOARD_SIZE):
+		for y in range(0,BOARD_SIZE):
+			board_as_char[x][y] = " "
+			if IsOn(board[x][y][COMPUTER_PLAYER]):
+				board_as_char[x][y] = "O"
+			elif IsOn(board[x][y][OTHER_PLAYER]):
+				board_as_char[x][y] = "X"
+	
+	print("+---+---+---+        +-----+-----+-----+")
+	print("| %s | %s | %s |        | %s | %s | %s |" % (board_as_char[0][0], board_as_char[0][1], board_as_char[0][2],   output[0][0], output[0][1], output[0][2]))
+	print("+---+---+---+        +-----+-----+-----+")
+	print("| %s | %s | %s |        | %s | %s | %s |" % (board_as_char[1][0], board_as_char[1][1], board_as_char[1][2],   output[1][0], output[1][1], output[1][2]))
+	print("+---+---+---+        +-----+-----+-----+")
+	print("| %s | %s | %s |        | %s | %s | %s |" % (board_as_char[2][0], board_as_char[2][1], board_as_char[2][2],   output[2][0], output[2][1], output[2][2]))
+	print("+---+---+---+        +-----+-----+-----+")
+
+def PrintUserBoard(board):
+	
+	board_as_char = [[" "," "," "],[" "," "," "],[" "," "," "]]
+	
+	for x in range(0,BOARD_SIZE):
+		for y in range(0,BOARD_SIZE):
+			board_as_char[x][y] = " "
+			if IsOn(board[x][y][COMPUTER_PLAYER]):
+				board_as_char[x][y] = "O"
+			elif IsOn(board[x][y][OTHER_PLAYER]):
+				board_as_char[x][y] = "X"
+	
+	print("+---+---+---+        +---+---+---+")
+	print("| %s | %s | %s |        | 7 | 8 | 9 |" % (board_as_char[0][0], board_as_char[0][1], board_as_char[0][2]))
+	print("+---+---+---+        +---+---+---+")
+	print("| %s | %s | %s |        | 4 | 5 | 6 |" % (board_as_char[1][0], board_as_char[1][1], board_as_char[1][2]))
+	print("+---+---+---+        +---+---+---+")
+	print("| %s | %s | %s |        | 1 | 2 | 3 |" % (board_as_char[2][0], board_as_char[2][1], board_as_char[2][2]))
+	print("+---+---+---+        +---+---+---+")
+
+def IsOn(x):
+	return x == 1
+
+def IsEmpty(x):
+	return x[0] == 0 and x[1] == 0
+
 def Winner(a):
 	for i in range(0,BOARD_SIZE):
-		if np.all(a[:,i]==0):
+		if np.all(a[:,i]==[1,0]):
 			return 0
-		if np.all(a[:,i]==1):
+		if np.all(a[:,i]==[0,1]):
 			return 1
-		if np.all(a[i,:]==0):
+		if np.all(a[i,:]==[1,0]):
 			return 0
-		if np.all(a[i,:]==1):
+		if np.all(a[i,:]==[0,1]):
 			return 1
-	if np.all(a.diagonal()==0):
+	
+	if ((a[0,0,0] and a[1,1,0] and a[2,2,0]) or
+        (a[2,0,0] and a[1,1,0] and a[0,2,0])):
 		return 0
-	if np.all(a.diagonal()==1):
-		return 1
-	if np.all(np.fliplr(a).diagonal()==0):
-		return 0
-	if np.all(np.fliplr(a).diagonal()==1):
-		return 1
-	# is the board full?
-	if np.any(a==0.5):
-		return -1
+	
+	if ((a[0,0,1] and a[1,1,1] and a[2,2,1]) or
+        (a[2,0,1] and a[1,1,1] and a[0,2,1])):
+		return 1	
+		
+	# is the board not full?
+	for x in range(0,BOARD_SIZE):
+		for y in range(0,BOARD_SIZE):
+			if IsEmpty(a[x][y]):
+				return -1
 	return 2
 
 class TTTGameGenerator(keras.utils.Sequence):
 	
 	def __init__(self, batch_size=32):
 		
-		self.numWin = 0
-		self.numLose = 0
-				
 		self.generated_input_boards = []
 		self.generated_output_boards = []
 		self.generated_boards_weights = []
 		
 		self.batch_size = batch_size
-		self.batch_input_boards = np.zeros((self.batch_size,BOARD_SIZE*BOARD_SIZE), dtype=float)
+		self.batch_input_boards = np.zeros((self.batch_size,BOARD_SIZE,BOARD_SIZE,2), dtype=float)
 		self.batch_output_boards = np.zeros((self.batch_size,BOARD_SIZE*BOARD_SIZE), dtype=float)
 		self.batch_output_weights = np.zeros((self.batch_size,), dtype=float)
 		
@@ -66,28 +121,28 @@ class TTTGameGenerator(keras.utils.Sequence):
 			while len(self.generated_input_boards) == 0:
 				self.generateMoreBoards()
 			
-			np.copyto(self.batch_input_boards[i], self.generated_input_boards[0].flatten())
+			np.copyto(self.batch_input_boards[i], self.generated_input_boards[0])
 			np.copyto(self.batch_output_boards[i], self.generated_output_boards[0].flatten())
-			self.batch_output_weights[i] = self.generated_boards_weights[0]
 			
 			del self.generated_input_boards[0]
 			del self.generated_output_boards[0]
-			del self.generated_boards_weights[0]
 			
-		return self.batch_input_boards, self.batch_output_boards, self.batch_output_weights
+		return self.batch_input_boards, self.batch_output_boards
 	
 	
 	def makeRandomMoveForPlayer(self,input_board,output_board,player):
 		open_spaces = []
 		for x in range(0,BOARD_SIZE):
 			for y in range(0,BOARD_SIZE):
-				if input_board[x][y] == 0.5:
+				if IsEmpty(input_board[x][y]):
 					open_spaces.append((x,y))
 		if len(open_spaces) == 0:
 			return False
 		
 		idx = random.choice(open_spaces)
-		input_board[idx[0]][idx[1]] = player
+		input_board[idx[0]][idx[1]].fill(0)
+		input_board[idx[0]][idx[1]][player] = 1
+		
 		output_board.fill(0)
 		if player == 0:
 			output_board[idx[0]][idx[1]] = 1
@@ -99,12 +154,9 @@ class TTTGameGenerator(keras.utils.Sequence):
 		# in our generated_output_boards in the index we are placing a "1"
 		# if we end up winning the game and "0" if we end up losing the game.
 				
-		input_board = np.zeros((BOARD_SIZE,BOARD_SIZE), dtype=float)
+		input_board = np.zeros((BOARD_SIZE,BOARD_SIZE,2), dtype=float)
 		output_board = np.zeros((BOARD_SIZE,BOARD_SIZE), dtype=float)
-		
-		# clear the initial board
-		input_board.fill(0.5)
-		
+				
 		# we don't want to always be making the first move, so sometimes
 		# we start the other player's move first.  In our setup, "0"
 		# is always me and "1" is always the opponent
@@ -124,49 +176,55 @@ class TTTGameGenerator(keras.utils.Sequence):
 				if player_order[i] == 0:
 					self.generated_input_boards.append(np.copy(input_board))
 				
+				
 				self.makeRandomMoveForPlayer(input_board,output_board,player_order[i])
+				#if self.makeRandomMoveForPlayer(input_board,output_board,player_order[i]) == False:
+				#	PrintTrainingBoard(input_board, output_board)
+				#	print("input_board", input_board)
+				#	print("winner", Winner(input_board))
 				
 				# if its the my turn, store the output of the board for my choice
 				if player_order[i] == 0:
 					self.generated_output_boards.append(np.copy(output_board))
 		
-		# if we lost or tie, then we did not win.  Thus these are not the moves
-		# we should make, 0 them out.
-		if Winner(input_board) != 0:
+		# we lost, all plays this time were bad (so that are 0)
+		if Winner(input_board) == 1:
 			for i in range(0,len(self.generated_output_boards)):
-				self.generated_output_boards[i].fill(0)
-			self.numLose += len(self.generated_output_boards)
-			weight = self.numWin / (self.numWin+self.numLose)
-		else:
-			self.numWin += len(self.generated_output_boards)
-			weight = self.numLose / (self.numWin+self.numLose)
-		
-		for i in range(0,len(self.generated_output_boards)):
-			self.generated_boards_weights.append(weight)
-			
-		#print(self.numWin, self.numLose)
-			
+				self.generated_output_boards[i] *= 0
+		# we tied, all plays this time were only ok (so they are 0.5)
+		if Winner(input_board) == 2:
+			for i in range(0,len(self.generated_output_boards)):
+				self.generated_output_boards[i] *= 0.5
+								
 
 def Learn():
 	
 	# 1. create the model
 	print("creating the model")
-	_model = model.create_model(BOARD_SIZE*BOARD_SIZE)
+	_model = model.create_model(BOARD_SIZE)
 
 	# 2. train the model
-	batch_size = 128
+	print("initializing the generator")
+	batch_size = 1
 	generator = TTTGameGenerator(batch_size)
 		
-	for i in range(0,1000):
+	print("beginning training")
+	for i in range(0,100000):
 		# generate a new training sample
-		train,label,weights = generator.__getitem__(0)
-								
+		train,label = generator.__getitem__(0)
+		
+		#PrintTrainingBoard(train[0], label[0].reshape(BOARD_SIZE,BOARD_SIZE))
+							
 		_model.fit(train, label,
 			batch_size=batch_size,
 			epochs=1,
 			verbose=1,
-			sample_weight=weights
+			#sample_weight=weights
 			)
+	
+		#again = raw_input('Continue? [y]:')
+		#if again != "y":
+		#	break
 	
 	
 	_model.save(MODEL_H5_NAME)
@@ -183,27 +241,6 @@ def Learn():
 
 Learn()
 
-def PrintBoard(board):
-	
-	board_as_char = [[" "," "," "],[" "," "," "],[" "," "," "]]
-	
-	for x in range(0,BOARD_SIZE):
-		for y in range(0,BOARD_SIZE):
-			if board[x][y] == 0:
-				board_as_char[x][y] = "O"
-			elif board[x][y] == 1:
-				board_as_char[x][y] = "X"
-			else:
-				board_as_char[x][y] = " "
-	
-	print("+---+---+---+        +---+---+---+")
-	print("| %s | %s | %s |        | 7 | 8 | 9 |" % (board_as_char[0][0], board_as_char[0][1], board_as_char[0][2]))
-	print("+---+---+---+        +---+---+---+")
-	print("| %s | %s | %s |        | 4 | 5 | 6 |" % (board_as_char[1][0], board_as_char[1][1], board_as_char[1][2]))
-	print("+---+---+---+        +---+---+---+")
-	print("| %s | %s | %s |        | 1 | 2 | 3 |" % (board_as_char[2][0], board_as_char[2][1], board_as_char[2][2]))
-	print("+---+---+---+        +---+---+---+")
-
 def UserPlayTurn(board):
 	
 	space_to_coords = [ [2,0], [2,1], [2,2], 
@@ -217,45 +254,44 @@ def UserPlayTurn(board):
 			if space >= 1 and space <= 9:
 				space -= 1
 				coords = space_to_coords[space]
-				if board[coords[0]][coords[1]] == 0.5:
+				if IsEmpty(board[coords[0]][coords[1]]):
 					break;
 			print "Not a valid number, try again"
 		except ValueError:
 		    print "Not a valid number, try again"
 	
 	coords = space_to_coords[space]
-	board[coords[0]][coords[1]] = 1
+	board[coords[0]][coords[1]] = [0,1]
 
 def AIPlayTurn(board, _model):
 	
-	predictions = _model.predict(board.flatten().reshape((1,BOARD_SIZE*BOARD_SIZE)))
+	predictions = _model.predict(board.flatten().reshape((1,BOARD_SIZE,BOARD_SIZE,2)))
 	
 	ai_board = predictions.reshape((BOARD_SIZE,BOARD_SIZE))
-	
-	print(ai_board)
+		
+	PrintTrainingBoard(board, ai_board)
 	
 	max = 0
 	for x in range(0,BOARD_SIZE):
 		for y in range(0,BOARD_SIZE):
-			if ai_board[x][y] > max and board[x][y] == 0.5:
+			if ai_board[x][y] > max and IsEmpty(board[x][y]):
 				max = ai_board[x][y]
 				coords = (x,y)
-	print("AI:", coords, max)
-	board[coords[0]][coords[1]] = 0
+
+	board[coords[0]][coords[1]] = [1,0]
 	
 
 def Play():
 	# simple user facing play mode to test playing against the AI
-	_model = model.create_model(BOARD_SIZE*BOARD_SIZE)
+	_model = model.create_model(BOARD_SIZE)
 	_model.load_weights(MODEL_H5_NAME)
 	
 	while True:
 		
-		board = np.zeros((BOARD_SIZE,BOARD_SIZE), dtype=float)
-		board.fill(0.5)
+		board = np.zeros((BOARD_SIZE,BOARD_SIZE,2), dtype=float)
 		
 		while True:
-			PrintBoard(board)
+			PrintUserBoard(board)
 			UserPlayTurn(board)
 			if Winner(board) >= 0:
 				break
@@ -264,7 +300,7 @@ def Play():
 				break
 	
 		print("\n\n\n")
-		PrintBoard(board)
+		PrintUserBoard(board)
 		winner = Winner(board)
 		if winner == 1:
 			print("You win!")

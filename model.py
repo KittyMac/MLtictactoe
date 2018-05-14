@@ -9,25 +9,24 @@ def create_model(boardsize):
 
 	model = Sequential()
 	
-	model.add(Dense(boardsize*4, input_shape=(boardsize,)))
+	model.add(Flatten(input_shape=(boardsize,boardsize,2)))
+	model.add(Dense(boardsize*boardsize*8))
 	model.add(Activation('relu'))
 	
-	#model.add(Dense(boardsize*8))
-	#model.add(Activation('relu'))
+	model.add(Dense(boardsize*boardsize*4))
+	model.add(Activation('relu'))
 	
-	#model.add(Dense(boardsize*4))
-	#model.add(Activation('relu'))
+	model.add(Dense(boardsize*boardsize*2))
+	model.add(Activation('relu'))
 	
-	model.add(Dense(boardsize, activation='sigmoid'))
-	
-	#model.add(Dense(boardsize*2, input_shape=(boardsize,), activation='relu'))
-	#model.add(Dense(boardsize*4, activation='relu'))
-	#model.add(Dense(boardsize*8, activation='relu'))
-	#model.add(Dense(boardsize, activation='sigmoid'))
-	
-	sgd = optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+	model.add(Dense(boardsize*boardsize, activation='sigmoid', use_bias=False))
+		
+	#sgd = optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 	model.compile(loss='mse',
-	              optimizer=sgd,
+	              optimizer="rmsprop",
 	              metrics=['accuracy'])
+	
+	
+	print(model.summary())
 
 	return model
