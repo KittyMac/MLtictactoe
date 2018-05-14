@@ -111,15 +111,15 @@ class TTTGameGenerator(keras.utils.Sequence):
 		self.batch_output_boards = np.zeros((self.batch_size,BOARD_SIZE*BOARD_SIZE), dtype=float)
 		self.batch_output_weights = np.zeros((self.batch_size,), dtype=float)
 		
-		self.generateMoreBoards()
+		self.generateMoreBoards(None, 0)
 			
 	def __len__(self):
 		return 1
 		
-	def __getitem__(self, index):
+	def __getitem__(self, _model, exploration):
 		for i in range(0, self.batch_size):
 			while len(self.generated_input_boards) == 0:
-				self.generateMoreBoards()
+				self.generateMoreBoards(_model, exploration)
 			
 			np.copyto(self.batch_input_boards[i], self.generated_input_boards[0])
 			np.copyto(self.batch_output_boards[i], self.generated_output_boards[0].flatten())
@@ -148,7 +148,7 @@ class TTTGameGenerator(keras.utils.Sequence):
 			output_board[idx[0]][idx[1]] = 1
 		return True
 	
-	def generateMoreBoards(self):
+	def generateMoreBoards(self, _model, exploration):
 		# play a game randomly. The idea here is for each turn we make a move, we
 		# store the board configuration in generated_input_boards, then store
 		# in our generated_output_boards in the index we are placing a "1"
@@ -175,13 +175,29 @@ class TTTGameGenerator(keras.utils.Sequence):
 				# if its the my turn, store the state of the board before i make my choice
 				if player_order[i] == 0:
 					self.generated_input_boards.append(np.copy(input_board))
+
+				# sometime splay randomly, sometimes play using our in-progress model
 				
+				# TODO: the AI MUST be able to inform decisions for both players...
 				
-				self.makeRandomMoveForPlayer(input_board,output_board,player_order[i])
-				#if self.makeRandomMoveForPlayer(input_board,output_board,player_order[i]) == False:
-				#	PrintTrainingBoard(input_board, output_board)
-				#	print("input_board", input_board)
-				#	print("winner", Winner(input_board))
+				if _model != None and player_order[i] == 0 and random.random() <= exploration:
+					predictions = _model.predict(input_board.flatten().reshape((1,BOARD_SIZE,BOARD_SIZE,2)))
+					ai_board = predictions.reshape((BOARD_SIZE,BOARD_SIZE))	
+					
+					coords = None
+					max = 0
+					for x in range(0,BOARD_SIZE):
+						for y in range(0,BOARD_SIZE):
+							if ai_board[x][y] > max and IsEmpty(input_board[x][y]):
+								max = ai_board[x][y]
+								coords = (x,y)
+					if coords != None:
+						input_board[coords[0]][coords[1]] = [1,0]
+						output_board[coords[0]][coords[1]] = 1
+					else:
+						self.makeRandomMoveForPlayer(input_board,output_board,player_order[i])
+				else:
+					self.makeRandomMoveForPlayer(input_board,output_board,player_order[i])
 				
 				# if its the my turn, store the output of the board for my choice
 				if player_order[i] == 0:
@@ -205,13 +221,13 @@ def Learn():
 
 	# 2. train the model
 	print("initializing the generator")
-	batch_size = 1
+	batch_size = 256
 	generator = TTTGameGenerator(batch_size)
 		
 	print("beginning training")
-	for i in range(0,100000):
+	for i in range(0,1000):
 		# generate a new training sample
-		train,label = generator.__getitem__(0)
+		train,label = generator.__getitem__(_model, i / 1000)
 		
 		#PrintTrainingBoard(train[0], label[0].reshape(BOARD_SIZE,BOARD_SIZE))
 							

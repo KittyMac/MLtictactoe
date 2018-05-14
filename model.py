@@ -10,13 +10,13 @@ def create_model(boardsize):
 	model = Sequential()
 	
 	model.add(Flatten(input_shape=(boardsize,boardsize,2)))
-	model.add(Dense(boardsize*boardsize*8))
+	model.add(Dense(500))
 	model.add(Activation('relu'))
 	
-	model.add(Dense(boardsize*boardsize*4))
+	model.add(Dense(250))
 	model.add(Activation('relu'))
 	
-	model.add(Dense(boardsize*boardsize*2))
+	model.add(Dense(100))
 	model.add(Activation('relu'))
 	
 	model.add(Dense(boardsize*boardsize, activation='sigmoid', use_bias=False))
