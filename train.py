@@ -13,6 +13,18 @@ import keras.callbacks
 import random
 import time
 
+import signal
+import time
+
+class SignalHandler:
+  stop_processing = False
+  def __init__(self):
+    signal.signal(signal.SIGINT, self.exit_gracefully)
+    signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+  def exit_gracefully(self,signum, frame):
+    self.stop_processing = True
+
 
 # each board is a (3,3,3) matrix, where the last dimension is
 # [0] == 1 for empty space
@@ -25,6 +37,10 @@ MODEL_COREML_NAME = "ttt.mlmodel"
 
 COMPUTER_PLAYER = 0
 OTHER_PLAYER = 1
+
+GOOD_MOVE_SCORE = 1.0
+TIE_MOVE_SCORE = 0.5
+BAD_MOVE_SCORE = 0.0001
 
 def PrintTrainingBoard(board, output):
 	
@@ -104,22 +120,20 @@ class TTTGameGenerator(keras.utils.Sequence):
 		
 		self.generated_input_boards = []
 		self.generated_output_boards = []
-		self.generated_boards_weights = []
 		
 		self.batch_size = batch_size
 		self.batch_input_boards = np.zeros((self.batch_size,BOARD_SIZE,BOARD_SIZE,2), dtype=float)
 		self.batch_output_boards = np.zeros((self.batch_size,BOARD_SIZE*BOARD_SIZE), dtype=float)
-		self.batch_output_weights = np.zeros((self.batch_size,), dtype=float)
 		
-		self.generateMoreBoards(None, 0)
+		self.generateMoreBoards(None)
 			
 	def __len__(self):
 		return 1
 		
-	def __getitem__(self, _model, exploration):
+	def __getitem__(self, _model):
 		for i in range(0, self.batch_size):
 			while len(self.generated_input_boards) == 0:
-				self.generateMoreBoards(_model, exploration)
+				self.generateMoreBoards(_model)
 			
 			np.copyto(self.batch_input_boards[i], self.generated_input_boards[0])
 			np.copyto(self.batch_output_boards[i], self.generated_output_boards[0].flatten())
@@ -129,6 +143,48 @@ class TTTGameGenerator(keras.utils.Sequence):
 			
 		return self.batch_input_boards, self.batch_output_boards
 	
+	
+	def makeSmartMoveForPlayer(self,_model,input_board,output_board,player):
+		
+		if _model != None:
+			local_board = np.copy(input_board)
+		
+			if player == 1:
+				for x in range(0,BOARD_SIZE):
+					for y in range(0,BOARD_SIZE):
+						local_board[x][y][0] = input_board[x][y][1]
+						local_board[x][y][1] = input_board[x][y][0]
+		
+			predictions = _model.predict(local_board.flatten().reshape((1,BOARD_SIZE,BOARD_SIZE,2)))
+			ai_board = predictions.reshape((BOARD_SIZE,BOARD_SIZE))	
+		
+			# treat the value of the ai board as the percentage chance of choosing that spot...
+			total_rand = 0
+			for x in range(0,BOARD_SIZE):
+				for y in range(0,BOARD_SIZE):
+					if IsEmpty(local_board[x][y]) == False:
+						ai_board[x][y] = 0
+					total_rand += ai_board[x][y]
+		
+			my_rand_choice = random.random() * total_rand
+		
+			for x in range(0,BOARD_SIZE):
+				for y in range(0,BOARD_SIZE):
+					if IsEmpty(local_board[x][y]) == True:
+						my_rand_choice -= ai_board[x][y]
+						if my_rand_choice <= 0.0:
+							input_board[x][y].fill(0)
+							input_board[x][y][player] = 1
+							
+							output_board.fill(0)
+							if player == 0:
+								output_board[x][y] = GOOD_MOVE_SCORE
+							return
+		
+		
+		# if for any reason we were unable to calculate a move for ourselves,
+		# make a random move
+		self.makeRandomMoveForPlayer(input_board,output_board,player)
 	
 	def makeRandomMoveForPlayer(self,input_board,output_board,player):
 		open_spaces = []
@@ -145,10 +201,10 @@ class TTTGameGenerator(keras.utils.Sequence):
 		
 		output_board.fill(0)
 		if player == 0:
-			output_board[idx[0]][idx[1]] = 1
+			output_board[idx[0]][idx[1]] = GOOD_MOVE_SCORE
 		return True
 	
-	def generateMoreBoards(self, _model, exploration):
+	def generateMoreBoards(self, _model):
 		# play a game randomly. The idea here is for each turn we make a move, we
 		# store the board configuration in generated_input_boards, then store
 		# in our generated_output_boards in the index we are placing a "1"
@@ -176,29 +232,8 @@ class TTTGameGenerator(keras.utils.Sequence):
 				if player_order[i] == 0:
 					self.generated_input_boards.append(np.copy(input_board))
 
-				# sometime splay randomly, sometimes play using our in-progress model
-				
-				# TODO: the AI MUST be able to inform decisions for both players...
-				
-				if _model != None and player_order[i] == 0 and random.random() <= exploration:
-					predictions = _model.predict(input_board.flatten().reshape((1,BOARD_SIZE,BOARD_SIZE,2)))
-					ai_board = predictions.reshape((BOARD_SIZE,BOARD_SIZE))	
-					
-					coords = None
-					max = 0
-					for x in range(0,BOARD_SIZE):
-						for y in range(0,BOARD_SIZE):
-							if ai_board[x][y] > max and IsEmpty(input_board[x][y]):
-								max = ai_board[x][y]
-								coords = (x,y)
-					if coords != None:
-						input_board[coords[0]][coords[1]] = [1,0]
-						output_board[coords[0]][coords[1]] = 1
-					else:
-						self.makeRandomMoveForPlayer(input_board,output_board,player_order[i])
-				else:
-					self.makeRandomMoveForPlayer(input_board,output_board,player_order[i])
-				
+				self.makeSmartMoveForPlayer(_model,input_board,output_board,player_order[i])
+			
 				# if its the my turn, store the output of the board for my choice
 				if player_order[i] == 0:
 					self.generated_output_boards.append(np.copy(output_board))
@@ -206,11 +241,12 @@ class TTTGameGenerator(keras.utils.Sequence):
 		# we lost, all plays this time were bad (so that are 0)
 		if Winner(input_board) == 1:
 			for i in range(0,len(self.generated_output_boards)):
-				self.generated_output_boards[i] *= 0
+				self.generated_output_boards[i] *= BAD_MOVE_SCORE
+		
 		# we tied, all plays this time were only ok (so they are 0.5)
 		if Winner(input_board) == 2:
 			for i in range(0,len(self.generated_output_boards)):
-				self.generated_output_boards[i] *= 0.5
+				self.generated_output_boards[i] *= TIE_MOVE_SCORE
 								
 
 def Learn():
@@ -218,24 +254,48 @@ def Learn():
 	# 1. create the model
 	print("creating the model")
 	_model = model.create_model(BOARD_SIZE)
+	if os.path.isfile(MODEL_H5_NAME):
+		_model.load_weights(MODEL_H5_NAME)
 
 	# 2. train the model
 	print("initializing the generator")
-	batch_size = 256
+	batch_size = 1
 	generator = TTTGameGenerator(batch_size)
+	
+	iterations = 1000000
 		
 	print("beginning training")
-	for i in range(0,1000):
+	handler = SignalHandler()
+	for i in range(0,iterations):
+		
+		if handler.stop_processing:
+			break
+		
+		if (i % 1000) == 0:
+			print("... %s" % i)
+		
 		# generate a new training sample
-		train,label = generator.__getitem__(_model, i / 1000)
+		train,label = generator.__getitem__(_model)
+		
+		# our label as returned by the generator contains a board with a bunch of 0's
+		# in the spaces we are not modifying, and then 0, 0.5, or 1 in the space
+		# we do modify. Before we can train, we need to fill all 0 spaces with the
+		# predicted outputs from our model (otherwise we are teaching the AI that
+		# all plays other than the one we made are super bad, which is not the case. We
+		# don't know they're bad, we just know the results of the one move we actually
+		# did make)
+		for j in range(0,len(train)):
+			predictions = _model.predict(train[j].flatten().reshape((1,BOARD_SIZE,BOARD_SIZE,2)))
+			for k in range(0,BOARD_SIZE*BOARD_SIZE):
+				if label[j][k] < BAD_MOVE_SCORE:
+					label[j][k] = predictions[0][k]
 		
 		#PrintTrainingBoard(train[0], label[0].reshape(BOARD_SIZE,BOARD_SIZE))
 							
 		_model.fit(train, label,
 			batch_size=batch_size,
 			epochs=1,
-			verbose=1,
-			#sample_weight=weights
+			verbose=0,
 			)
 	
 		#again = raw_input('Continue? [y]:')
@@ -300,7 +360,8 @@ def AIPlayTurn(board, _model):
 def Play():
 	# simple user facing play mode to test playing against the AI
 	_model = model.create_model(BOARD_SIZE)
-	_model.load_weights(MODEL_H5_NAME)
+	if os.path.isfile(MODEL_H5_NAME):
+		_model.load_weights(MODEL_H5_NAME)
 	
 	while True:
 		

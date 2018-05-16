@@ -10,20 +10,19 @@ def create_model(boardsize):
 	model = Sequential()
 	
 	model.add(Flatten(input_shape=(boardsize,boardsize,2)))
-	model.add(Dense(500))
+	model.add(Dense(pow(boardsize,5)))
 	model.add(Activation('relu'))
 	
-	model.add(Dense(250))
+	model.add(Dense(pow(boardsize,4)))
 	model.add(Activation('relu'))
 	
-	model.add(Dense(100))
+	model.add(Dense(pow(boardsize,3)))
 	model.add(Activation('relu'))
 	
-	model.add(Dense(boardsize*boardsize, activation='sigmoid', use_bias=False))
+	model.add(Dense(boardsize*boardsize, activation='sigmoid'))
 		
-	#sgd = optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
 	model.compile(loss='mse',
-	              optimizer="rmsprop",
+	              optimizer="adadelta",
 	              metrics=['accuracy'])
 	
 	
