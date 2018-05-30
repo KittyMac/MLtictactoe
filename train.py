@@ -314,30 +314,36 @@ def Learn():
 	print("Conversion to coreml finished...")
 	
 	
+#if __name__ == '__main__':
+	#Learn()
 
-Learn()
-
-def UserPlayTurn(board):
+def UserPlayTurn(board,space=None):
 	
 	space_to_coords = [ [2,0], [2,1], [2,2], 
 						[1,0], [1,1], [1,2], 
 						[0,0], [0,1], [0,2], ]
 	
-	space = 0
-	while True:
-		try:
-			space = int(raw_input('Choose space:'))
-			if space >= 1 and space <= 9:
-				space -= 1
-				coords = space_to_coords[space]
-				if IsEmpty(board[coords[0]][coords[1]]):
-					break;
-			print "Not a valid number, try again"
-		except ValueError:
-		    print "Not a valid number, try again"
+	if space == None:
+		while True:
+			try:
+				space = int(raw_input('Choose space:'))
+				if space >= 1 and space <= 9:
+					space -= 1
+					coords = space_to_coords[space]
+					if IsEmpty(board[coords[0]][coords[1]]):
+						break;
+				print "Not a valid number, try again"
+			except ValueError:
+			    print "Not a valid number, try again"
+	
+	if space < 0 or space > 8:
+		return False
+	
+	print("user space: " + str(space))
 	
 	coords = space_to_coords[space]
 	board[coords[0]][coords[1]] = [0,1]
+	return True
 
 def AIPlayTurn(board, _model):
 	
@@ -391,4 +397,5 @@ def Play():
 			break
 
 
-Play()
+if __name__ == '__main__':
+	Play()

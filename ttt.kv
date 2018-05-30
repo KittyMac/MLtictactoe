@@ -1,0 +1,56 @@
+#:kivy 1.10.0
+
+# This section defines what a space looks like
+<TTTSpace>:
+	label: label
+	canvas:
+		Color:
+			rgb: 1, 1, 1
+		Rectangle:
+			pos: self.pos
+			size: self.size
+	Label:
+		id: label
+		pos: root.pos
+		size: root.size
+		font_size: str(root.size[0]/2)+"sp"
+		color: 0.3, 0.3, 0.3, 1.0
+		text: ""
+
+# This section defines what the game looks like
+<TTTGame>:
+	grid: grid
+	
+	canvas:
+	    Color:
+	        rgb: 0.3, 0.3, 0.3
+		Rectangle:
+			pos: self.pos
+			size: self.size
+	
+	GridLayout:
+		id: grid
+		cols:3
+		size: root.board_size
+		padding:4,4,4,4
+		spacing:2,2
+		TTTSpace:
+			index: [2,0]
+		TTTSpace:
+			index: [2,1]
+		TTTSpace:
+			index: [2,2]
+		TTTSpace:
+			index: [1,0]
+		TTTSpace:
+			index: [1,1]
+		TTTSpace:
+			index: [1,2]
+		TTTSpace:
+			index: [0,0]
+		TTTSpace:
+			index: [0,1]
+		TTTSpace:
+			index: [0,2]
+		
+	
