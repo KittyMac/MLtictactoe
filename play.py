@@ -2,18 +2,20 @@ from __future__ import division
 #from keras.callbacks import *
 
 from kivy.app import App
+from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 from kivy.properties import NumericProperty,ReferenceListProperty,ObjectProperty,VariableListProperty
 from kivy.vector import Vector
 from kivy.clock import Clock
-from random import randint
 from kivy.config import Config
+from kivy.uix.popup import Popup
 
 from keras import backend as keras
 import numpy as np
 import os
 import model
 import train
+import random
 
 class TTTSpace(Widget):
 	index = VariableListProperty(2)
@@ -37,21 +39,30 @@ class TTTGame(Widget):
 	def on_touch_up(self,touch):
 		# run through all of the spaces (children of grid) and find the one hit
 		for space in self.grid.children:
-			if space.collide_point(touch.x,touch.y):
-				if train.UserPlayTurn(self.board, space.boardIndex()):
-					self.handleAITurn()
-				self.updateBoard()
+			if space.label.text == "":
+				if space.collide_point(touch.x,touch.y):
+					if train.UserPlayTurn(self.board, space.boardIndex()):
+						self.handleAITurn()
+					self.updateBoard()
 	
 	def handleEndOfGame(self):
 		winner = train.Winner(self.board)
 		if winner >= 0:
+			results = "Game Over!"
 			if winner == 1:
-				print("You win!")
+				results = "You win!"
 			if winner == 0:
-				print("You lose!")
+				results = "You lose!"
 			if winner == 2:
-				print("Tie game!")
+				results = "Tie game!"
+			
+			popup = Popup(title='Game Over',
+			    content=Label(text=results),
+			    size_hint=(None, None), size=(400, 200))
+			popup.open()
+			
 			self.resetBoard()
+			
 			return True
 		return False
 	
@@ -74,6 +85,10 @@ class TTTGame(Widget):
 	
 	def resetBoard(self):
 			self.board = np.zeros((train.BOARD_SIZE,train.BOARD_SIZE,2), dtype=float)
+			
+			if random.random() < 0.5:
+				self.handleAITurn()
+			
 			self.updateBoard()
 		
 			#while True:
