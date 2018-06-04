@@ -1,5 +1,4 @@
 from __future__ import division
-#from keras.callbacks import *
 
 from kivy.app import App
 from kivy.uix.label import Label
@@ -14,6 +13,7 @@ from keras import backend as keras
 import numpy as np
 import os
 import model
+from train import TTTGameGenerator
 import train
 import random
 
@@ -33,7 +33,9 @@ class TTTGame(Widget):
 		self.model = model.create_model(train.BOARD_SIZE)
 		if os.path.isfile(train.MODEL_H5_NAME):
 			self.model.load_weights(train.MODEL_H5_NAME)
-			
+		
+		self.generator = TTTGameGenerator(1)
+		
 		self.resetBoard()
 	
 	def on_touch_up(self,touch):
@@ -41,7 +43,7 @@ class TTTGame(Widget):
 		for space in self.grid.children:
 			if space.label.text == "":
 				if space.collide_point(touch.x,touch.y):
-					if train.UserPlayTurn(self.board, space.boardIndex()):
+					if train.UserPlayTurn(self.board, space.boardIndex(), self.generator):
 						self.handleAITurn()
 					self.updateBoard()
 	
@@ -61,6 +63,31 @@ class TTTGame(Widget):
 			    size_hint=(None, None), size=(400, 200))
 			popup.open()
 			
+			n = self.generator.lengthOfReadyBoards()
+			for i in range(0,n):
+				train_set,label_set = self.generator.__getitem__(self.model)
+		
+				# our label as returned by the generator contains a board with a bunch of 0's
+				# in the spaces we are not modifying, and then 0, 0.5, or 1 in the space
+				# we do modify. Before we can train, we need to fill all 0 spaces with the
+				# predicted outputs from our model (otherwise we are teaching the AI that
+				# all plays other than the one we made are super bad, which is not the case. We
+				# don't know they're bad, we just know the results of the one move we actually
+				# did make)
+				for j in range(0,len(train_set)):
+					predictions = self.model.predict(train_set[j].flatten().reshape((1,train.BOARD_SIZE,train.BOARD_SIZE,2)))
+					for k in range(0,train.BOARD_SIZE*train.BOARD_SIZE):
+						if label_set[j][k] < train.BAD_MOVE_SCORE:
+							label_set[j][k] = predictions[0][k]
+		
+				#PrintTrainingBoard(train_set[0], label_set[0].reshape(BOARD_SIZE,BOARD_SIZE))
+							
+				self.model.fit(train_set, label_set,
+					batch_size=1,
+					epochs=1,
+					verbose=1,
+					)
+			
 			self.resetBoard()
 			
 			return True
@@ -68,7 +95,7 @@ class TTTGame(Widget):
 	
 	def handleAITurn(self):
 		if self.handleEndOfGame() == False:
-			train.AIPlayTurn(self.board, self.model)
+			train.AIPlayTurn(self.board, self.model, self.generator)
 			self.handleEndOfGame()
 	
 	def updateBoard(self):
@@ -86,33 +113,10 @@ class TTTGame(Widget):
 	def resetBoard(self):
 			self.board = np.zeros((train.BOARD_SIZE,train.BOARD_SIZE,2), dtype=float)
 			
-			if random.random() < 0.5:
-				self.handleAITurn()
+			#if random.random() < 0.5:
+			#	self.handleAITurn()
 			
 			self.updateBoard()
-		
-			#while True:
-			#	PrintUserBoard(board)
-			#	UserPlayTurn(board)
-			#	if Winner(board) >= 0:
-			#		break
-			#	AIPlayTurn(board, _model)
-			#	if Winner(board) >= 0:
-			#		break
-            #
-			#print("\n\n\n")
-			#PrintUserBoard(board)
-			#winner = Winner(board)
-			#if winner == 1:
-			#	print("You win!")
-			#if winner == 0:
-			#	print("You lose!")
-			#if winner == 2:
-			#	print("Tie game!")
-	        #
-			#again = raw_input('Again? [y]:')
-			#if again != "y":
-			#	break
 	
 	def on_size(self, instance, value):
 		self.board_size = (self.size[0],self.size[0]) if self.size[0] < self.size[1] else (self.size[1],self.size[1])
@@ -125,6 +129,9 @@ class TTTApp(App):
 		return game
 
 if __name__ == '__main__':
+	
+	Config.set('graphics', 'width', '640')
+	Config.set('graphics', 'height', '640')
 	
 	#Config.set('graphics', 'fullscreen', '0')
 	#Config.write()

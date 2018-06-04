@@ -143,6 +143,34 @@ class TTTGameGenerator(keras.utils.Sequence):
 			
 		return self.batch_input_boards, self.batch_output_boards
 	
+	def lengthOfReadyBoards(self):
+		return len(self.generated_input_boards)
+	
+	# used for the play vs human recording of game
+	def registerMoveForPlayer(self,x,y,input_board,player):
+		
+		if player == 0:
+			self.generated_input_boards.append(np.copy(input_board))
+		
+		input_board[x][y].fill(0)
+		input_board[x][y][player] = 1
+		
+		if player == 0:
+			output_board = np.zeros((BOARD_SIZE,BOARD_SIZE), dtype=float)
+			output_board[x][y] = GOOD_MOVE_SCORE
+			self.generated_output_boards.append(output_board)
+		
+		if Winner(input_board) >= 0:
+			# we lost, all plays this time were bad (so that are 0)
+			if Winner(input_board) == 1:
+				for i in range(0,len(self.generated_output_boards)):
+					self.generated_output_boards[i] *= BAD_MOVE_SCORE
+		
+			# we tied, all plays this time were only ok (so they are 0.5)
+			if Winner(input_board) == 2:
+				for i in range(0,len(self.generated_output_boards)):
+					self.generated_output_boards[i] *= TIE_MOVE_SCORE
+
 	
 	def makeSmartMoveForPlayer(self,_model,input_board,output_board,player):
 		
@@ -247,7 +275,7 @@ class TTTGameGenerator(keras.utils.Sequence):
 		if Winner(input_board) == 2:
 			for i in range(0,len(self.generated_output_boards)):
 				self.generated_output_boards[i] *= TIE_MOVE_SCORE
-								
+
 
 def Learn():
 	
@@ -306,18 +334,18 @@ def Learn():
 	_model.save(MODEL_H5_NAME)
 
 	# 3. export to coreml
-	coreml_model = coremltools.converters.keras.convert(MODEL_H5_NAME,input_names=['board'], output_names=['plays'])   
-	coreml_model.author = 'Rocco Bowling'   
-	coreml_model.short_description = 'Model to play tic-tac-toe'
-	coreml_model.input_description['board'] = 'A normalized representation of the game board, 0 means space taken by enemy, 0.5 is empty space, 1.0 is space taken by me'
-	coreml_model.save(MODEL_COREML_NAME)
-	print("Conversion to coreml finished...")
+	#coreml_model = coremltools.converters.keras.convert(MODEL_H5_NAME,input_names=['board'], output_names=['plays'])   
+	#coreml_model.author = 'Rocco Bowling'   
+	#coreml_model.short_description = 'Model to play tic-tac-toe'
+	#coreml_model.input_description['board'] = 'A normalized representation of the game board, 0 means space taken by enemy, 0.5 is empty space, 1.0 is space taken by me'
+	#coreml_model.save(MODEL_COREML_NAME)
+	#print("Conversion to coreml finished...")
 	
 	
 #if __name__ == '__main__':
 	#Learn()
 
-def UserPlayTurn(board,space=None):
+def UserPlayTurn(board,space=None,generator=None):
 	
 	space_to_coords = [ [2,0], [2,1], [2,2], 
 						[1,0], [1,1], [1,2], 
@@ -343,9 +371,13 @@ def UserPlayTurn(board,space=None):
 	
 	coords = space_to_coords[space]
 	board[coords[0]][coords[1]] = [0,1]
+	
+	if generator != None:
+		generator.registerMoveForPlayer(coords[0],coords[1],board,OTHER_PLAYER)
+	
 	return True
 
-def AIPlayTurn(board, _model):
+def AIPlayTurn(board, _model, generator=None):
 	
 	predictions = _model.predict(board.flatten().reshape((1,BOARD_SIZE,BOARD_SIZE,2)))
 	
@@ -361,6 +393,9 @@ def AIPlayTurn(board, _model):
 				coords = (x,y)
 
 	board[coords[0]][coords[1]] = [1,0]
+	
+	if generator != None:
+		generator.registerMoveForPlayer(coords[0],coords[1],board,COMPUTER_PLAYER)
 	
 
 def Play():
