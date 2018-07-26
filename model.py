@@ -4,28 +4,42 @@ from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.normalization import BatchNormalization
 from keras import optimizers
+import os
 
-def create_model(boardsize):
+BOARD_SIZE = 3
+MODEL_H5_NAME = "ttt.h5"
+MODEL_COREML_NAME = "ttt.mlmodel"
+
+def doesModelExist():
+	return os.path.isfile(MODEL_H5_NAME)
+
+def createModel(loadFromDisk):
 
 	model = Sequential()
 	
-	model.add(Flatten(input_shape=(boardsize,boardsize,2)))
-	model.add(Dense(pow(boardsize,5)))
+	model.add(Flatten(input_shape=(BOARD_SIZE,BOARD_SIZE,2)))
+	
+	model.add(Dense(pow(BOARD_SIZE,6)))
 	model.add(Activation('relu'))
 	
-	model.add(Dense(pow(boardsize,4)))
+	model.add(Dense(pow(BOARD_SIZE,5)))
 	model.add(Activation('relu'))
 	
-	model.add(Dense(pow(boardsize,3)))
+	model.add(Dense(pow(BOARD_SIZE,4)))
 	model.add(Activation('relu'))
 	
-	model.add(Dense(boardsize*boardsize, activation='sigmoid'))
+	model.add(Dense(pow(BOARD_SIZE,3)))
+	model.add(Activation('relu'))
+	
+	model.add(Dense(BOARD_SIZE*BOARD_SIZE, activation='sigmoid'))
 		
 	model.compile(loss='mse',
-	              optimizer="adadelta",
-	              metrics=['accuracy'])
-	
+	              optimizer="adadelta")
 	
 	print(model.summary())
+	
+	# simple user facing play mode to test playing against the AI
+	if loadFromDisk and os.path.isfile(MODEL_H5_NAME):
+		model.load_weights(MODEL_H5_NAME)
 
 	return model
