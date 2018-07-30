@@ -65,7 +65,7 @@ def Learn():
 
 
 
-def Train(generator,_model,n):
+def Train(generator,_model,n,debugPrint=False):
 	
 	batch_train = np.zeros((n,model.BOARD_SIZE,model.BOARD_SIZE,2), dtype=float)
 	batch_label = np.zeros((n,model.BOARD_SIZE*model.BOARD_SIZE), dtype=float)
@@ -73,17 +73,25 @@ def Train(generator,_model,n):
 	if n < batch_size:
 		batch_size = n
 	
+	all_turns = []
+	model_before_training = model.createModel(False)
+	model_before_training.set_weights(_model.get_weights())
+	
 	for i in range(0,n):
 		turn = generator.getNextTurn(_model)
 		train,label = turn.GetTrainingData(_model)
-		
-		#turn.Print(_model)
-		#print(label)
-		
+				
 		np.copyto(batch_train[i], train)
 		np.copyto(batch_label[i], label)
+		
+		all_turns.append(turn)
 	
 	_model.fit(batch_train,batch_label,batch_size=batch_size,epochs=1,verbose=1)
+	
+	if debugPrint:
+		for turn in all_turns:
+			# We want to print each turn trained, the model before and after training
+			turn.PrintModels(model_before_training, _model)
 	
 	
 def UserPlayTurn(currentTurn):
@@ -112,7 +120,11 @@ def Play():
 		
 		while True:
 			currentTurn = game.GameTurn(currentTurn)
-			if currentTurn.Winner() >= 0:
+			
+			local_winner = currentTurn.Winner()
+			if local_winner >= 0:
+				for turn in generator.generated_turns:
+					turn.winning_player = local_winner
 				break
 			
 			currentTurn.Print(_model)
@@ -134,8 +146,8 @@ def Play():
 		if winner == 2:
 			print("Tie game!")
 		
-		Train(generator,_model,len(generator.generated_turns))
-		
+		Train(generator,_model,len(generator.generated_turns),True)
+				
 		again = raw_input('Again? [y]:')
 		if again != "y":
 			break

@@ -36,7 +36,7 @@ def createModel(loadFromDisk):
 	model.compile(loss='mse',
 	              optimizer="adadelta")
 	
-	print(model.summary())
+	#print(model.summary())
 	
 	# simple user facing play mode to test playing against the AI
 	if loadFromDisk and os.path.isfile(MODEL_H5_NAME):

@@ -123,20 +123,17 @@ class GameTurn:
 	def GetTrainingData(self,_model):
 		ai_board,local_board = self.GetPredictions(_model)
 		coords = self.coordsFromIndex(self.current_player_move)
-		win_value = 0.5
-		if self.winning_player == self.current_player:
+		if self.winning_player == -1:
+			win_value = 0.5
+		elif self.winning_player == self.current_player:
 			win_value = 1.0
 		else:
 			win_value = 0.0
-		#if self.current_player == PLAYER_OTHER:
-		#	win_value = 1.0 - win_value
-			
 		ai_board[coords[0]][coords[1]] = win_value
 		return local_board.reshape(1,BOARD_SIZE,BOARD_SIZE,2),ai_board.reshape(1,BOARD_SIZE*BOARD_SIZE)
-		
 	
 	def Print(self,_model):
-	
+			
 		board_as_char = [[" "," "," "],[" "," "," "],[" "," "," "]]
 	
 		for x in range(0,BOARD_SIZE):
@@ -173,6 +170,36 @@ class GameTurn:
 		print("| %s | %s | %s |        | 1 | 2 | 3 |        | %.3f | %.3f | %.3f |" % (board_as_char[2][0], board_as_char[2][1], board_as_char[2][2], ai_board[2][0], ai_board[2][1], ai_board[2][2], ))
 		print("+---+---+---+        +---+---+---+        +-------+-------+-------+")
 
+	def PrintModels(self,_before,_after):
+		
+		before_ai_board,before_local_board = self.GetPredictions(_before)
+		after_ai_board,after_local_board = self.GetPredictions(_after)
+		
+		train,label = self.GetTrainingData(_before)
+		label = label.reshape(BOARD_SIZE,BOARD_SIZE)
+		train = train.reshape(BOARD_SIZE,BOARD_SIZE,2)
+		
+		board_as_char = [[" "," "," "],[" "," "," "],[" "," "," "]]
+	
+		for x in range(0,BOARD_SIZE):
+			for y in range(0,BOARD_SIZE):
+				board_as_char[x][y] = " "
+				if self.board[x][y][PLAYER_COMPUTER] == 1:
+					board_as_char[x][y] = "O"
+				elif self.board[x][y][PLAYER_OTHER] == 1:
+					board_as_char[x][y] = "X"
+		
+		print("")
+		print("current_player", self.current_player, "winning_player", self.winning_player)
+		print("+-------+-------+-------+          +-------+-------+-------+        +---+---+---+          +-------+-------+-------+")
+		print("| %.3f | %.3f | %.3f |          | %.3f | %.3f | %.3f |        | %s | %s | %s |          | %.3f | %.3f | %.3f |" % (before_ai_board[0][0], before_ai_board[0][1], before_ai_board[0][2], label[0][0], label[0][1], label[0][2], board_as_char[0][0], board_as_char[0][1], board_as_char[0][2], after_ai_board[0][0], after_ai_board[0][1], after_ai_board[0][2], ))
+		print("+-------+-------+-------+          +-------+-------+-------+        +---+---+---+          +-------+-------+-------+")
+		print("| %.3f | %.3f | %.3f |      x   | %.3f | %.3f | %.3f |        | %s | %s | %s |    =     | %.3f | %.3f | %.3f |" % (before_ai_board[1][0], before_ai_board[1][1], before_ai_board[1][2], label[1][0], label[1][1], label[1][2], board_as_char[1][0], board_as_char[1][1], board_as_char[1][2], after_ai_board[1][0], after_ai_board[1][1], after_ai_board[1][2], ))
+		print("+-------+-------+-------+          +-------+-------+-------+        +---+---+---+          +-------+-------+-------+")
+		print("| %.3f | %.3f | %.3f |          | %.3f | %.3f | %.3f |        | %s | %s | %s |          | %.3f | %.3f | %.3f |" % (before_ai_board[2][0], before_ai_board[2][1], before_ai_board[2][2], label[2][0], label[2][1], label[2][2], board_as_char[2][0], board_as_char[2][1], board_as_char[2][2], after_ai_board[2][0], after_ai_board[2][1], after_ai_board[2][2], ))
+		print("+-------+-------+-------+          +-------+-------+-------+        +---+---+---+          +-------+-------+-------+")
+		
+		
 
 # the GameGenerator is responsible for providing GameTurns to the training engine.
 # It does this by generating a full game's worth of GameTurns and storing them for
