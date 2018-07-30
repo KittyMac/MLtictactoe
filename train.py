@@ -53,8 +53,8 @@ def Learn():
 			break
 		
 		print(i)
-		Train(generator,_model,10000)
-		i += 10000
+		Train(generator,_model,1000)
+		i += 1000
 			
 		#again = raw_input('Continue? [y]:')
 		#if again != "y":

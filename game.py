@@ -121,9 +121,11 @@ class GameTurn:
 		return ai_board,local_board
 	
 	def GetTrainingData(self,_model):
+		# winning play is set to 1, non-winning plays are 0, tied games are set to 0.5, predictions for spaces
+		# not affected by this turn are preserved
 		ai_board,local_board = self.GetPredictions(_model)
 		coords = self.coordsFromIndex(self.current_player_move)
-		if self.winning_player == -1:
+		if self.winning_player == 2:
 			win_value = 0.5
 		elif self.winning_player == self.current_player:
 			win_value = 1.0
