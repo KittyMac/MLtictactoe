@@ -42,7 +42,7 @@ def Learn():
 	batch_size = 1
 	generator = game.GameGenerator()
 	
-	iterations = 1000000
+	iterations = 100000
 		
 	print("beginning training")
 	handler = SignalHandler()
@@ -53,8 +53,11 @@ def Learn():
 			break
 		
 		print(i)
-		Train(generator,_model,1000)
-		i += 1000
+		Train(generator,_model,500)
+		i += 500
+		
+		if i >= iterations:
+			break
 			
 		#again = raw_input('Continue? [y]:')
 		#if again != "y":
@@ -91,6 +94,7 @@ def Train(generator,_model,n,debugPrint=False):
 	if debugPrint:
 		for turn in all_turns:
 			# We want to print each turn trained, the model before and after training
+			#if turn.current_player == 0:
 			turn.PrintModels(model_before_training, _model)
 	
 	

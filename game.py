@@ -238,12 +238,20 @@ class GameGenerator(keras.utils.Sequence):
 				total_rand = 0
 				for idx in open_spaces:
 					coords = gameTurn.coordsFromIndex(idx)
+					
+					# use weighed random or not? change it here...
 					total_rand += ai_board[coords[0]][coords[1]]
+					#total_rand += 1.0
+					
 		
 				my_rand_choice = random.random() * total_rand
 				for idx in open_spaces:
 					coords = gameTurn.coordsFromIndex(idx)
+					
+					# use weighed random or not? change it here...
 					my_rand_choice -= ai_board[coords[0]][coords[1]]
+					#my_rand_choice -= 1.0
+					
 					if my_rand_choice <= 0.0:
 						gameTurn.registerMove(idx)
 						return
