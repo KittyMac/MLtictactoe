@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# 1. ensure virtualenv exists
+sudo pip install --upgrade pip
+sudo pip install virtualenv
+
+python3 -m venv python.env
+#virtualenv --python=/usr/bin/python2.7 python.env
+source python.env/bin/activate
+
+# 3. keras
+pip install keras==2.1.3
+pip install plaidml-keras
+
+# 5. extras
+pip install h5py
+
+# 6. setup plaidml
+plaidml-setup

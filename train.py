@@ -1,10 +1,12 @@
 from __future__ import division
 
+import os
+os.environ["KERAS_BACKEND"] = "plaidml.keras.backend"
+
 from keras import backend as keras
 
 from keras.preprocessing import sequence
 import numpy as np
-import coremltools
 import model
 import game
 import json
@@ -53,13 +55,13 @@ def Learn():
 			break
 		
 		print(i)
-		Train(generator,_model,500)
-		i += 500
+		Train(generator,_model,250)
+		i += 250
 		
 		if i >= iterations:
 			break
 			
-		#again = raw_input('Continue? [y]:')
+		#again = input('Continue? [y]:')
 		#if again != "y":
 		#	break
 	
@@ -101,15 +103,15 @@ def Train(generator,_model,n,debugPrint=False):
 def UserPlayTurn(currentTurn):
 	while True:
 		try:
-			space = int(raw_input('Choose space:'))
+			space = int(input('Choose space:'))
 			if space >= 1 and space <= 9:
 				space -= 1
 				coords = currentTurn.coordsFromIndex(space)
 				if currentTurn.IsEmpty(coords[0],coords[1]):
 					break;
-			print "Not a valid number, try again"
+			print("Not a valid number, try again")
 		except ValueError:
-		    print "Not a valid number, try again"
+		    print("Not a valid number, try again")
 	
 	currentTurn.registerMove(space)	
 	
@@ -152,7 +154,7 @@ def Play():
 		
 		Train(generator,_model,len(generator.generated_turns),True)
 				
-		again = raw_input('Again? [y]:')
+		again = input('Again? [y]:')
 		if again != "y":
 			break
 	
@@ -161,7 +163,7 @@ def Play():
 
 if __name__ == '__main__':
 	
-	if sys.argv >= 2:
+	if len(sys.argv) >= 2:
 		if sys.argv[1] == "play":
 			Play()
 		if sys.argv[1] == "learn":

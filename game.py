@@ -5,7 +5,6 @@ from keras import backend as keras
 from keras.preprocessing import sequence
 import numpy as np
 import os
-import coremltools
 import model
 import json
 import operator
@@ -290,7 +289,7 @@ class GameGenerator(keras.utils.Sequence):
 			# get the next game turn
 			currentTurn = GameTurn(currentTurn)
 			# register a play
-			self.makeSmartMove(_model, currentTurn, True)
+			self.makeSmartMove(_model, currentTurn, random.random() < 0.7)
 			# save the turn
 			if currentTurn.isValid():
 				self.generated_turns.append(currentTurn)
